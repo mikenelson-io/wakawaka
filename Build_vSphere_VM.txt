@@ -1,0 +1,20 @@
+#### VARIABLES ####
+#### READ IN FROM CSV FILE OR SET MANUALLY HERE ####
+#### SET ALL VARIABLES TO <NOTHING> UNTIL DEFINED OR READ IN FROM CSV ####
+#### ADD QUOTES FOR DEFINITIONS ####
+#Set CSV path
+$path_to_csv = 
+# vCenter Server Name or IP
+$VCENTER = 
+
+### CSV COLUMN NAMES - MUST MATCH EXACTLY
+VMName,NumberOfCPU,RAM,ResourcePool,NetworkName,DiskSizeMB
+#Get credentials & Connect
+Get-Credential | connect-viserver -server $VCENTER
+
+#Import the CSV, and build the VMs
+$csv = Import-Csv -Path $path_to_csv
+$csv | foreach-object {
+    New-VM -Name $_.ServerName -NumCPU $_.NumberOfCPU -MemoryMB $_.RAM -Resourcepool $_.ResourcePool -NetworkName $_.NetworkName -DiskMB $_.DiskSizeMB -GuestId $_.OS -Datastore "supernova-staging" -vmhost "178331-kickstart2.iad1.rvi.local" -CD -RunAsync 
+}
+		

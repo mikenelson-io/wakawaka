@@ -1,0 +1,76 @@
+Import-Module hyper-v
+
+#### VARIABLES ####
+#### READ IN FROM CSV FILE OR SET MANUALLY HERE ####
+#### SET ALL VARIABLES TO <NOTHING> UNTIL DEFINED OR READ IN FROM CSV ####
+#### ADD QUOTES FOR DEFINITIONS ####
+# UNC path to VM File Location
+$VMLocation =
+# ISO file for build.. i.e. C:\win.iso
+$VMISO =
+# Hyper-V Network Name
+$VMNetwork =
+# VLAN ID - Use "0" if no VLANID is needed. Defaults to "0".
+$VLANID = "0"
+# RAM_SIZE_IN_GB.. i.e. 8GB
+$VMMemory =
+# 0 or 1.. 0=No. Defaults to "1" Yes.
+$DynamicRAM = "1"
+# MAX_RAM_SIZE_FOR_DYNAMIC_MEMORY_IN_MB.. i.e. 8192
+$MaxMEM = 
+# MIN_RAM_SIZE_FOR_DYNAMIC_MEMORY_IN_MB.. i.e. 8192
+$MinMEM = 
+# NUMBER_OF_VIRTUAL_PROCESSORS. Defaults to 2.
+$CPUCount = "2"
+# VM_SYSTEM_DISK_SIZE_IN_GB.. i.e. 60GB
+$VMDiskSize = 
+# VM_DATA_DISK_SIZE_IN_GB.. i.e. 60GB
+$VMDisk2Size = 
+# Start VM Post-Build or not? 0=No, 1=Yes
+$STARTVM = "1"
+# VM Cluster Role? 0=No, 1=Yes. Defaults to 0=No
+$VMClusterRole = "0"
+
+
+#### READ IN CSV FILE FOR DEFINED VARIABLES ####
+
+
+#### EXECUTE BUILD ####
+New-VM -Name $VMName -BootDevice CD -MemoryStartupBytes $VMMemory -SwitchName $VMNetwork -Path $VMLocation -NoVHD -Verbose
+New-VHD -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk1.vhdx" -SizeBytes $VMDiskSize -Verbose
+Add-VMHardDiskDrive -VMName $VMName -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk1.vhdx" -Verbose
+New-VHD -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk2.vhdx" -SizeBytes $VMDisk2Size -Verbose
+Add-VMHardDiskDrive -VMName $VMName -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk2.vhdx" -Verbose -ControllerType SCSI
+Set-VMDvdDrive -VMName $VMName -Path $VMISO -Verbose
+
+#### CONFIGURE VM POST-BUILD ####
+Write-Host "Configure Virtual Machine..." -BackgroundColor Blue -ForegroundColor Yellow
+If ($DynamicRAM -eq "1"){
+Set-VM -Name $VMName -DynamicMemory -MemoryMaximumBytes $MAXMEM% -MemoryMinimumBytes %MINMEM% -MemoryStartupBytes %VMMemory% -ProcessorCount $CPUCount%
+} else {
+Set-VM -Name $VMName -ProcessorCount %CPUCount%
+}
+
+#### Need to expand this to include many options available ####
+#Write-Host "Enabling IOV on NIC of Virtual Machine..." -BackgroundColor Blue -ForegroundColor Yellow
+#Set-VMNetworkAdapter -VMName $VMName 
+
+#### Need to add logic to allow for multiple VLAN ID's <string>???? ####
+If ($VLANID ne "0"){
+Write-Host "Configure VLANID for Virtual Machine..." -BackgroundColor Blue -ForegroundColor Yellow
+Set-VMNetworkAdapterVlan –VMName $VMName –Access  -VLANID %VLANID%
+} else {
+}
+
+If ($VMClusterRole eq "1"){
+Write-Host "Adding Virtual Machine to FailOver Clustering..." -BackgroundColor Blue -ForegroundColor Yellow
+Add-ClusterVirtualMachineRole -VirtualMachine $VMName
+} else {
+}
+
+#### START VM ####
+If ($StartVM eq "1"){
+Write-Host "Startup Virtual Machine: $VMName..." -BackgroundColor Black -ForegroundColor Green
+Start-VM -Name $VMName
+} else {
+}

@@ -1,0 +1,46 @@
+Import-Module hyper-v
+$VMLocation = "\\E01S01-HFS020.S01.nFinity.nC2\V1L1_SAS"
+$VMISO = "c:\v3MDTBoot.iso"
+#$VMISO = "C:\ClusterStorage\volume1\iso\OldMDTSP1.iso"
+$VMNetwork = "vm-data"
+$VLANID = 52
+
+
+$VMMemory = 8GB
+$VMDiskSize = 60GB
+$VMDisk2Size = 60GB
+
+#2..2 | % {
+$path = "C:\vm.csv"
+import-csv -path $path|ForEach-Object {
+$vmName = $_.Name 
+#$VMName = "E01A01-RC00$_"
+
+#write-host $vmName }
+
+
+
+New-VM -Name $VMName -BootDevice CD -MemoryStartupBytes $VMMemory -SwitchName $VMNetwork -Path $VMLocation -NoVHD -Verbose
+New-VHD -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk1.vhdx" -SizeBytes $VMDiskSize -Verbose
+Add-VMHardDiskDrive -VMName $VMName -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk1.vhdx" -Verbose
+New-VHD -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk2.vhdx" -SizeBytes $VMDisk2Size -Verbose
+Add-VMHardDiskDrive -VMName $VMName -Path "$VMLocation\$VMName\Virtual Hard Disks\$VMName-Disk2.vhdx" -Verbose -ControllerType SCSI
+Set-VMDvdDrive -VMName $VMName -Path $VMISO -Verbose
+ 
+Write-Host "Configure Virtual Machine..." -BackgroundColor Black -ForegroundColor Green
+Set-VM -Name $VMName -DynamicMemory -MemoryMaximumBytes 8192 -MemoryMinimumBytes 8192 -MemoryStartupBytes 8192 -ProcessorCount 2
+
+Write-Host "Enabling IOV on NIC of Virtual Machine..." -BackgroundColor Black -ForegroundColor Green
+Set-VMNetworkAdapter -VMName $VMName 
+
+Write-Host "Configure VLANID for Virtual Machine..." -BackgroundColor Black -ForegroundColor Green
+Set-VMNetworkAdapterVlan –VMName $VMName –Access  -VLANID 52 
+
+Write-Host "Adding Virtual Machine to FailOver Clustering..." -BackgroundColor Black -ForegroundColor Green
+Add-ClusterVirtualMachineRole -VirtualMachine $VMName
+
+
+Write-Host "Startup Virtual Machine: $VMName..." -BackgroundColor Black -ForegroundColor Green
+Start-VM -Name $VMName
+ 
+}
